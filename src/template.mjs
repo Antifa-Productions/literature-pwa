@@ -4,7 +4,7 @@ export function buildHtml(book, cssPath = '/css/style.css', siteUrl = 'https://d
     const lang = book.language || 'en';
     const datePublished = book.datePublished || '';
     const description = book.description || '';
-    const canonicalUrl = `${siteUrl}/literature/${book.fileName}/`;
+    const canonicalUrl = `${siteUrl}/literature/${encodeURIComponent(book.fileName)}/`;
     const ogImage = `${siteUrl}/images/png/og_social.png`;
     const ogDescription = escapeHtml(description || `${book.title} by ${book.author}`);
 
@@ -14,7 +14,7 @@ export function buildHtml(book, cssPath = '/css/style.css', siteUrl = 'https://d
             if (sub.type === 'heading') {
                 return `      <h3 id="${sub.id}">${escapeHtml(sub.content)}</h3>`;
             }
-            return `      <p>${sub.content}</p>`;
+            return `      <p>${escapeHtml(sub.content)}</p>`;
         }).join('\n');
 
         return `    <section aria-labelledby="${ch.id}">
@@ -26,7 +26,7 @@ ${subsectionsHtml}
     let footnotesHtml = '';
     if (book.footnotes && book.footnotes.length > 0) {
         const items = book.footnotes.map(fn =>
-            `      <li id="${fn.id}"><a href="#ref-${fn.num}" aria-label="Back to reference ${fn.num}">↩</a> ${fn.text}</li>`
+            `      <li id="${fn.id}"><a href="#ref-${fn.num}" aria-label="Back to reference ${fn.num}">↩</a> ${escapeHtml(fn.text)}</li>`
         ).join('\n');
         footnotesHtml = `
     <section aria-labelledby="footnotes-heading">
@@ -111,14 +111,14 @@ ${items}
   <title>${escapeHtml(book.title)} — ${escapeHtml(book.author)}</title>
 
   <script type="application/ld+json">
-${JSON.stringify(schemaLd, null, 2)}
+${JSON.stringify(schemaLd, null, 2).replace(/</g, '\\u003c')}
   </script>
   <script type="application/ld+json">
-${JSON.stringify(breadcrumbSchema, null, 2)}
+${JSON.stringify(breadcrumbSchema, null, 2).replace(/</g, '\\u003c')}
   </script>
 
   <script src="/sw-register.js" defer></script>
-  <script>window.__BOOK_SLUG__ = '${escapeHtml(book.fileName)}';</script>
+  <script>window.__BOOK_SLUG__ = ${JSON.stringify(book.fileName)};</script>
   <script src="/js/reader.js" defer></script>
 </head>
 <body>
@@ -223,7 +223,7 @@ export function buildHomepageHtml(siteUrl = 'https://dev.antinazi.org', cssPath 
   <title>${escapeHtml(title)}</title>
 
   <script type="application/ld+json">
-${JSON.stringify(schemaLd, null, 2)}
+${JSON.stringify(schemaLd, null, 2).replace(/</g, '\\u003c')}
   </script>
 
   <script src="/sw-register.js" defer></script>
