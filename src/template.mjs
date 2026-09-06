@@ -26,7 +26,7 @@ ${subsectionsHtml}
     let footnotesHtml = '';
     if (book.footnotes && book.footnotes.length > 0) {
         const items = book.footnotes.map(fn =>
-            `      <li id="${fn.id}"><a href="#ref-${fn.num}" aria-label="Back to reference ${fn.num}">↩</a> ${escapeHtml(fn.text)}</li>`
+            `      <li id="${fn.id}"><a href="#ref-${fn.num}" aria-label="Back to reference ${fn.num}">↩</a> ${fn.text}</li>`
         ).join('\n');
         footnotesHtml = `
     <section aria-labelledby="footnotes-heading">
