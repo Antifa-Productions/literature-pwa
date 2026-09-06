@@ -313,7 +313,7 @@
   },
   {
     "url": "/precache-manifest.json",
-    "revision": "b44e3e5950f0131746932e6fd44b569c8b53c979"
+    "revision": "f48c352a3985650ee39f2565deb493d77a7aaf14"
   },
   {
     "url": "/sw-register.js",
@@ -321,6 +321,6 @@
   },
   {
     "url": "/sw.js",
-    "revision": "f09a339d5e1079f2f9b24151e2e8ced96a0773a8"
+    "revision": "fc598b84b9e40b8235cb6971ad5c14c172a48fc2"
   }
 ]
