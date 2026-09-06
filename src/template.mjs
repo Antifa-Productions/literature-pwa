@@ -1,4 +1,6 @@
-import { escapeHtml } from './utils.mjs';
+import {
+    escapeHtml
+} from './utils.mjs';
 
 export function buildHtml(book, cssPath = '/css/style.css', siteUrl = 'https://dev.antinazi.org') {
     const lang = book.language || 'en';
@@ -54,11 +56,22 @@ ${items}
     const breadcrumbSchema = {
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
-        'itemListElement': [
-            { '@type': 'ListItem', position: 1, name: 'Home', item: `${siteUrl}/` },
-            { '@type': 'ListItem', position: 2, name: 'Library', item: `${siteUrl}/library/` },
-            { '@type': 'ListItem', position: 3, name: book.title, item: canonicalUrl }
-        ]
+        'itemListElement': [{
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: `${siteUrl}/`
+        }, {
+            '@type': 'ListItem',
+            position: 2,
+            name: 'Library',
+            item: `${siteUrl}/library/`
+        }, {
+            '@type': 'ListItem',
+            position: 3,
+            name: book.title,
+            item: canonicalUrl
+        }]
     };
 
     return `<!DOCTYPE html>
@@ -176,7 +189,7 @@ export function buildHomepageHtml(siteUrl = 'https://dev.antinazi.org', cssPath 
     };
 
     return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${lang}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -193,8 +206,10 @@ export function buildHomepageHtml(siteUrl = 'https://dev.antinazi.org', cssPath 
   <meta name="apple-mobile-web-app-title" content="Antinazi">
 
   <!-- Favicons -->
-  <link rel="icon" href="/images/svg/favicon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
-  <link rel="icon" href="/images/svg/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/favicon-light.png" type="image/png" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="/favicon-dark.png" type="image/png" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/favicon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
   <link rel="apple-touch-icon" href="/images/png/apple-touch-icon-180x180.png" sizes="180x180">
 
   <!-- Open Graph -->
