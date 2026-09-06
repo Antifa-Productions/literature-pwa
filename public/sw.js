@@ -7,15 +7,15 @@
  *
  * Strategies:
  *   - Precached assets:     Cache-first (managed by Workbox)
- *   - HTML navigation:      Network-first, fall back to cached index.html
- *   - CSS / JS:              Stale-while-revalidate
- *   - JSON data:            Stale-while-revalidate
+ *   - HTML navigation:      Network-first (3s timeout), falls back to network cache
+ *   - CSS / JS:             Stale-while-revalidate
+ *   - JSON data:            Stale-while-revalidate (except index.json, handled manually)
  *   - Images:               Cache-first with expiration
  *
  * Messaging:
- *   - SAVE_PROGRESS:  Stores reading position in IndexedDB
- *   - GET_PROGRESS:   Retrieves reading position from IndexedDB
- *   - SKIP_WAITING:    Activates new SW immediately
+ *   - SAVE_PROGRESS:      Stores reading position in IndexedDB
+ *   - GET_PROGRESS:       Retrieves reading position from IndexedDB
+ *   - SKIP_WAITING:        Activates new SW immediately
  */
 
 // ── Import Workbox and IDB ─────────────────────────────────────────
@@ -32,8 +32,12 @@ workbox.setConfig({
   modulePathPrefix: '/lib/workbox/',
 });
 
-// Disable debug logging in production
-workbox.core.setLoggerWorkbox_core_Debug(false);
+// Debug logging is disabled by default in production workbox-sw builds.
+// If using a dev build where you need to silence it, guard the call so a
+// missing API never kills the whole worker:
+if (typeof workbox.core.setLogLevel === 'function') {
+  workbox.core.setLogLevel(workbox.core.LogLevel.warn);
+}
 
 // Destructure Workbox modules (auto-loaded by workbox-sw)
 var precacheAndRoute = workbox.precaching.precacheAndRoute;
@@ -45,45 +49,17 @@ var CacheFirst = workbox.strategies.CacheFirst;
 var ExpirationPlugin = workbox.expiration.ExpirationPlugin;
 var CacheableResponsePlugin = workbox.cacheableResponse.CacheableResponsePlugin;
 
-var FALLBACK_URL = '/index.html';
-
-// ── Precaching ─────────────────────────────────────────────────────
-
-/**
- * Fetch the precache manifest and hand it to Workbox.
- * Workbox stores each entry keyed by revision hash, so
- * updated files are automatically cache-busted.
- */
-async function setupPrecaching() {
-  try {
-    var response = await fetch('/precache-manifest.json');
-    if (!response.ok) {
-      throw new Error('Manifest fetch failed: ' + response.status);
-    }
-    var manifest = await response.json();
-
-    // Map our { url, revision } format to Workbox's expected format
-    var entries = manifest.map(function (entry) {
-      return {
-        url: entry.url,
-        revision: entry.revision || null,
-      };
-    });
-
-    precacheAndRoute(entries);
-    console.log('[SW] Precached ' + entries.length + ' entries');
-  } catch (err) {
-    console.error('[SW] Precache setup failed:', err);
-    // SW still functions — runtime caching will work,
-    // and assets will be cached on first fetch
-  }
-}
-
 // ── Navigation Route (HTML pages) ───────────────────────────────────
 //
+// Registered BEFORE precacheAndRoute (which is called asynchronously in
+// the install handler below). Workbox matches routes in registration
+// order, so this route takes priority over the precache route for
+// navigation requests. Keeping this file's structure intact matters:
+// if you ever move precacheAndRoute above this block, precaching
+// (cache-first) would start intercepting page navigations instead.
+//
 // NetworkFirst for HTML so users get fresh content when online.
-// Falls back to cached index.html when offline.
-// This route is checked BEFORE precacheAndRoute (higher priority).
+// Falls back to the previously cached copy when offline.
 
 var navigationRoute = new NavigationRoute(
   new NetworkFirst({
@@ -113,6 +89,9 @@ var navigationRoute = new NavigationRoute(
   }
 );
 
+// Register navigation route immediately (order matters — see comment above)
+registerRoute(navigationRoute);
+
 // ── Runtime Caching Routes ─────────────────────────────────────────
 
 // CSS and JS: stale-while-revalidate for instant loads with background updates
@@ -129,7 +108,10 @@ registerRoute(
   })
 );
 
-// JSON data (includes index.json book listings): stale-while-revalidate
+// JSON data: stale-while-revalidate.
+// NOTE: /literature/index.json is handled by the manual fetch listener
+// below, which calls respondWith first — so this SWR route never fires
+// for it. This route covers all OTHER JSON endpoints.
 registerRoute(
   function (args) {
     return args.url.pathname.endsWith('.json');
@@ -159,11 +141,49 @@ registerRoute(
   })
 );
 
+// ── Precaching ─────────────────────────────────────────────────────
+
+/**
+ * Fetch the precache manifest and hand it to Workbox.
+ * Workbox stores each entry keyed by revision hash, so
+ * updated files are automatically cache-busted. Registered
+ * last so the navigation route above retains priority.
+ */
+async function setupPrecaching() {
+  try {
+    var response = await fetch('/precache-manifest.json', { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error('Manifest fetch failed: ' + response.status);
+    }
+    var manifest = await response.json();
+
+    // Map our { url, revision } format to Workbox's expected format
+    var entries = manifest.map(function (entry) {
+      return {
+        url: entry.url,
+        revision: entry.revision || null,
+      };
+    });
+
+    precacheAndRoute(entries);
+    console.log('[SW] Precached ' + entries.length + ' entries');
+  } catch (err) {
+    console.error('[SW] Precache setup failed:', err);
+    // SW still functions — runtime caching will work,
+    // and assets will be cached on first fetch
+  }
+}
+
 // ── IDB: Metadata Caching ───────────────────────────────────────────
 //
 // When the book index is fetched, also store it in IDB.
 // This allows the landing page to display the catalogue
 // even when fully offline (first load was online).
+//
+// This manual fetch listener runs alongside the Workbox routes above.
+// For /literature/index.json it calls respondWith before Workbox can,
+// so this listener fully controls that request (network-first with an
+// IDB fallback) — the SWR JSON route does not apply to it.
 
 self.addEventListener('fetch', function (event) {
   var url = new URL(event.request.url);
