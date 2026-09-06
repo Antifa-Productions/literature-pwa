@@ -1,6 +1,6 @@
 import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, dirname, basename, extname } from 'node:path';
+import { join, basename, extname } from 'node:path';
 import { execSync } from 'node:child_process';
 import { escapeHtml, slugify, isChapterHeading, isCapsHeading } from './utils.mjs';
 import { buildHtml } from './template.mjs';
@@ -8,21 +8,33 @@ import { buildHtml } from './template.mjs';
 const TEXT_DIR = join(process.cwd(), 'public', 'text');
 const OUTPUT_DIR = join(process.cwd(), 'public', 'literature');
 
+const FOOTNOTE_REF_PATTERN = /\[(\d+)\]/g;
+const FOOTNOTE_DEF_PATTERN = /^\[(\d+)\]\s*(.+)$/;
+
+/**
+ * Escape text first, THEN inject inline HTML tags.
+ * Injecting tags before escaping is what caused the double-escape bug.
+ */
 function processInlineFormatting(raw) {
-  let text = escapeHtml(raw);
-  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  text = text.replace(/_([^_]+)_/g, '<em>$1</em>');
-  text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  return text;
+  return escapeHtml(raw)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/_([^_]+)_/g, '<em>$1</em>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(FOOTNOTE_REF_PATTERN, (_, num) =>
+      `<sup><a href="#fn-${num}" id="ref-${num}" aria-label="Footnote ${num}">[${num}]</a></sup>`
+    );
 }
 
+/**
+ * Extract footnote definitions from a batch of paragraph strings.
+ * Returns definitions plus paragraphs with inline refs linked and escaped.
+ */
 function extractFootnotes(paragraphs) {
   const footnotes = [];
-  const footnotePattern = /^\[(\d+)\]\s*(.+)$/;
+  const processed = [];
 
-  const contentParagraphs = [];
   for (const p of paragraphs) {
-    const match = p.match(footnotePattern);
+    const match = p.match(FOOTNOTE_DEF_PATTERN);
     if (match) {
       footnotes.push({
         id: `fn-${match[1]}`,
@@ -30,23 +42,18 @@ function extractFootnotes(paragraphs) {
         text: processInlineFormatting(match[2]),
       });
     } else {
-      contentParagraphs.push(p);
+      processed.push(processInlineFormatting(p));
     }
   }
 
-  const processedParagraphs = contentParagraphs.map(p => {
-    return processInlineFormatting(
-      p.replace(/\[(\d+)\]/g, (_, num) => {
-        return `<sup><a href="#fn-${num}" id="ref-${num}" aria-label="Footnote ${num}">[${num}]</a></sup>`;
-      })
-    );
-  });
-
-  return { paragraphs: processedParagraphs, footnotes };
+  return { paragraphs: processed, footnotes };
 }
 
-async function parseTextFile(filePath) {
-  const raw = await readFile(filePath, 'utf-8');
+function parseTextFile(filePath) {
+  return readFile(filePath, 'utf-8');
+}
+
+async function buildBookFromText(raw, filePath) {
   const lines = raw.replace(/\r\n/g, '\n').split('\n');
 
   const metadata = {};
@@ -58,8 +65,7 @@ async function parseTextFile(filePath) {
     for (let i = 0; i < startMarkerIdx; i++) {
       const m = lines[i].match(/^(Title|Author|Release Date|Language|Posting Date|Produced by):\s*(.+)$/i);
       if (m) {
-        const key = m[1].toLowerCase().replace(/\s+/g, '_');
-        metadata[key] = m[2].trim();
+        metadata[m[1].toLowerCase().replace(/\s+/g, '_')] = m[2].trim();
       }
     }
     contentStart = startMarkerIdx + 1;
@@ -67,9 +73,7 @@ async function parseTextFile(filePath) {
 
   const allLines = lines.slice(contentStart);
   const endMarkerIdx = allLines.findIndex(l => /\*\*\*\s*END OF/i.test(l));
-  const contentLines = endMarkerIdx !== -1
-    ? allLines.slice(0, endMarkerIdx)
-    : allLines;
+  const contentLines = endMarkerIdx !== -1 ? allLines.slice(0, endMarkerIdx) : allLines;
 
   const title = metadata.title || slugify(basename(filePath)).replace(/-/g, ' ');
   const author = metadata.author || 'Unknown';
@@ -84,6 +88,7 @@ async function parseTextFile(filePath) {
   const chapters = [];
   let currentChapter = null;
   let currentParagraph = [];
+  let paragraphCount = 0;
 
   function flushParagraph() {
     if (currentParagraph.length === 0) return;
@@ -98,14 +103,14 @@ async function parseTextFile(filePath) {
         chapters.push(currentChapter);
       }
       currentChapter.subsections.push({ type: 'paragraph', content: paraText });
+      paragraphCount++;
     }
     currentParagraph = [];
   }
 
   function startChapter(heading) {
     flushParagraph();
-    const id = slugify(heading) || `section-${chapters.length + 1}`;
-    currentChapter = { heading, id, subsections: [] };
+    currentChapter = { heading, id: slugify(heading) || `section-${chapters.length + 1}`, subsections: [] };
     chapters.push(currentChapter);
   }
 
@@ -124,8 +129,8 @@ async function parseTextFile(filePath) {
 
     if (isCapsHeading(trimmed) && currentParagraph.length === 0) {
       flushParagraph();
-      const id = slugify(trimmed) || `subsection-${chapters.length}-${currentChapter ? currentChapter.subsections.length : 0}`;
       if (currentChapter) {
+        const id = slugify(trimmed) || `subsection-${chapters.length}-${currentChapter.subsections.length}`;
         currentChapter.subsections.push({ type: 'heading', id, content: trimmed });
       } else {
         startChapter(trimmed);
@@ -137,35 +142,28 @@ async function parseTextFile(filePath) {
   }
   flushParagraph();
 
-  const allParagraphs = [];
+  // Single pass: escape + link refs + collect footnote definitions.
+  const footnotes = [];
   for (const ch of chapters) {
-    for (const sub of ch.subsections) {
-      if (sub.type === 'paragraph') {
-        allParagraphs.push(sub.content);
-      }
-    }
-  }
-  const { footnotes } = extractFootnotes(allParagraphs);
-
-  for (const ch of chapters) {
-    const processed = [];
-    for (const sub of ch.subsections) {
-      if (sub.type === 'paragraph') {
-        const { paragraphs } = extractFootnotes([sub.content]);
-        processed.push({ ...sub, content: paragraphs[0] || sub.content });
-      } else {
-        processed.push(sub);
-      }
-    }
-    ch.subsections = processed;
+    ch.subsections = ch.subsections.flatMap(sub => {
+      if (sub.type !== 'paragraph') return [sub];
+      const { paragraphs, footnotes: fns } = extractFootnotes([sub.content]);
+      footnotes.push(...fns);
+      return paragraphs.length > 0
+        ? [{ ...sub, content: paragraphs[0] }]
+        : [];
+    });
   }
 
-  const seenFn = new Set();
-  const dedupedFootnotes = footnotes.filter(fn => {
-    if (seenFn.has(fn.num)) return false;
-    seenFn.add(fn.num);
-    return true;
-  }).sort((a, b) => Number(a.num) - Number(b.num));
+  // Dedupe footnote definitions by number (refs may repeat; definitions shouldn't).
+  const seen = new Set();
+  const dedupedFootnotes = footnotes
+    .filter(fn => {
+      if (seen.has(fn.num)) return false;
+      seen.add(fn.num);
+      return true;
+    })
+    .sort((a, b) => Number(a.num) - Number(b.num));
 
   return {
     title,
@@ -181,17 +179,15 @@ async function parseTextFile(filePath) {
 
 async function convertFile(inputPath) {
   console.log(`Converting: ${inputPath}`);
-  const book = await parseTextFile(inputPath);
+  const raw = await parseTextFile(inputPath);
+  const book = await buildBookFromText(raw, inputPath);
 
   const outputDir = join(OUTPUT_DIR, book.fileName);
-  if (!existsSync(outputDir)) {
-    await mkdir(outputDir, { recursive: true });
-  }
+  await mkdir(outputDir, { recursive: true });
 
   const siteUrl = process.env.SITE_URL || 'https://dev.antinazi.org';
   const outputFile = join(outputDir, 'index.html');
-  const html = buildHtml(book, '/css/style.css', siteUrl);
-  await writeFile(outputFile, html, 'utf-8');
+  await writeFile(outputFile, buildHtml(book, '/css/style.css', siteUrl), 'utf-8');
   console.log(`  → Written: ${outputFile}`);
 }
 
@@ -203,37 +199,27 @@ async function getFilesToConvert() {
   }
 
   if (args.includes('--all')) {
-    const files = await readdir(TEXT_DIR);
-    return files
-      .filter(f => extname(f) === '.txt')
-      .map(f => join(TEXT_DIR, f));
+    return listTextFiles();
   }
 
-  try {
-    const diff = execSync(
-      'git diff --name-only --diff-filter=A HEAD~1 HEAD -- "public/text/*.txt"',
-      { encoding: 'utf-8', cwd: process.cwd() }
-    ).trim();
-    if (diff) {
-      return diff.split('\n').map(f => join(process.cwd(), f));
-    }
-  } catch {
+  // CI: convert only newly added text files since the previous commit.
+  for (const diffCmd of [
+    'git diff --name-only --diff-filter=A HEAD~1 HEAD -- "public/text/*.txt"',
+    'git diff --name-only HEAD -- "public/text/*.txt"',
+  ]) {
     try {
-      const diff = execSync(
-        'git diff --name-only HEAD -- "public/text/*.txt"',
-        { encoding: 'utf-8', cwd: process.cwd() }
-      ).trim();
-      if (diff) {
-        return diff.split('\n').map(f => join(process.cwd(), f));
-      }
-    } catch {}
+      const diff = execSync(diffCmd, { encoding: 'utf-8', cwd: process.cwd() }).trim();
+      if (diff) return diff.split('\n').map(f => join(process.cwd(), f));
+    } catch { /* fall through */ }
   }
 
+  return listTextFiles();
+}
+
+async function listTextFiles() {
   if (!existsSync(TEXT_DIR)) return [];
   const files = await readdir(TEXT_DIR);
-  return files
-    .filter(f => extname(f) === '.txt')
-    .map(f => join(TEXT_DIR, f));
+  return files.filter(f => extname(f) === '.txt').map(f => join(TEXT_DIR, f));
 }
 
 (async () => {
