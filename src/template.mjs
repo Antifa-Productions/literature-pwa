@@ -16,11 +16,13 @@ export function buildHtml(book, cssPath = '/css/style.css', siteUrl = 'https://d
     // the inline <em>/<strong>/<sup> markup deliberately. Escaping it here
     // would double-escape and display literal <em> tags in the browser —
     // same as footnote text, which is also already escaped.
-    // Raw (unescaped) fields: sub.type "heading", chapter headings, byline.
+    // sub.id for headings is produced by slugify() in convert.mjs and is
+    // already a safe slug. Raw (unescaped) fields: "heading" content,
+    // chapter headings, byline.
     const chaptersHtml = book.chapters.map(ch => {
         const subsectionsHtml = ch.subsections.map(sub => {
             if (sub.type === 'heading') {
-                return `      <h3 id="${slugify(sub.id)}">${escapeHtml(sub.content)}</h3>`;
+                return `      <h3 id="${sub.id}">${escapeHtml(sub.content)}</h3>`;
             }
             return `      <p>${sub.content}</p>`;
         }).join('\n');
@@ -102,7 +104,7 @@ ${items}
   <link rel="icon" href="/favicon-dark.png" type="image/png" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="/favicon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
   <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
-  <link rel="apple-touch-icon" href="/images/png/apple-touch-icon-180x180.png" sizes="180x180">
+  <link rel="apple-touch-icon" href="/images/png/apple-touch-icon-180-180.png" sizes="180x180">
 
   <!-- Open Graph -->
   <meta property="og:title" content="${escapeHtml(book.title)}">
@@ -216,7 +218,7 @@ export function buildHomepageHtml(siteUrl = 'https://dev.antinazi.org', cssPath 
   <link rel="icon" href="/favicon-dark.png" type="image/png" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="/favicon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
   <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
-  <link rel="apple-touch-icon" href="/images/png/apple-touch-icon-180x180.png" sizes="180x180">
+  <link rel="apple-touch-icon" href="/images/png/apple-touch-icon-180-180.png" sizes="180x180">
 
   <!-- Open Graph -->
   <meta property="og:title" content="${escapeHtml(title)}">
