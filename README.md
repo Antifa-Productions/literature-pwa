@@ -71,7 +71,7 @@ literature-pwa/
 │   ├── text/                         # Source plain-text files (your input)
 │   ├── Archive/                      # Additional cached files
 │   └── images/                       # PWA icons, OG images
-├── wrangler.toml                     # Pages config (MIME types, HTML handling)
+├── wrangler.jsonc                     # Pages config (MIME types, HTML handling)
 ├── package.json
 ├── README.md
 ├── SECURITY.md
@@ -82,9 +82,9 @@ literature-pwa/
 
 ## Configuration
 
-Create `wrangler.toml` in the repository root:
+Create `wrangler.jsonc` in the repository root:
 
-```toml
+```jsonc
 name = "literature-pwa"
 compatibility_date = "2026-08-20"
 pages_build_output_dir = "./public"
@@ -128,14 +128,14 @@ Create `public/_headers` with the following content:
 
 ## Deployment
 
-With `wrangler.toml` present, deploy the site with a single command from the
+With `wrangler.jsonc` present, deploy the site with a single command from the
 repository root:
 
 ```sh
 npx wrangler pages deploy
 ```
 
-Because `pages_build_output_dir = "./public"` is declared in `wrangler.toml`,
+Because `pages_build_output_dir = "./public"` is declared in `wrangler.jsonc`,
 there is no need to specify the output directory on the command line. The
 `name = "literature-pwa"` setting defines the project name on your Cloudflare
 account.
@@ -200,7 +200,7 @@ Setup requirements in the GitHub repository settings:
 3. Add the Cloudflare account ID as the `CLOUDFLARE_ACCOUNT_ID` secret
    (available on the Cloudflare dashboard overview page).
 
-Because `wrangler.toml` declares `pages_build_output_dir`, the workflow's
+Because `wrangler.jsonc` declares `pages_build_output_dir`, the workflow's
 `pages deploy` command needs no additional arguments. The `deployments: write`
 permission lets Cloudflare annotate the deployment status on commits.
 
@@ -305,7 +305,7 @@ If `_headers` instability recurs:
 2. Create `functions/_middleware.js` at the repository root using the code in
    Appendix A. Cloudflare Pages picks up the sibling `functions/` directory
    automatically on the next `wrangler pages deploy` — no additional
-   configuration in `wrangler.toml` is required.
+   configuration in `wrangler.jsonc` is required.
 3. Re-verify every MIME type with `curl -sI` before trusting the deployment.
 
 Do not run both mechanisms simultaneously. `_headers` rules and the middleware
@@ -337,7 +337,7 @@ repo/
 ├── public/
 │   ├── _headers        ← remove this when activating the Worker
 │   └── … site files …
-└── wrangler.toml
+└── wrangler.jsonc
 ```
 
 ### Complete source (`functions/_middleware.js`)
@@ -591,7 +591,7 @@ CSS: Custom properties, clamp() typography, prefers-color-scheme: dark
 HTML: Semantic HTML5, ARIA, Schema.org
 JSON-LD
 
-Hosting: Cloudflare Pages with wrangler.toml config
+Hosting: Cloudflare Pages with wrangler.jsonc config
 
 Dependencies: Pure Node.js standard library only
 
