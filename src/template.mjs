@@ -10,13 +10,19 @@ export function buildHtml(book, cssPath = '/css/style.css', siteUrl = 'https://d
     const ogImage = `${siteUrl}/images/png/og_social.png`;
     const ogDescription = escapeHtml(description || `${book.title} by ${book.author}`);
 
-    // Render chapters with proper heading/paragraph distinction
+    // Render chapters with proper heading/paragraph distinction.
+    // IMPORTANT: sub.content for type "paragraph" has ALREADY been escaped
+    // once by processInlineFormatting() in convert.mjs, which also injects
+    // the inline <em>/<strong>/<sup> markup deliberately. Escaping it here
+    // would double-escape and display literal <em> tags in the browser —
+    // same as footnote text, which is also already escaped.
+    // Raw (unescaped) fields: sub.type "heading", chapter headings, byline.
     const chaptersHtml = book.chapters.map(ch => {
         const subsectionsHtml = ch.subsections.map(sub => {
             if (sub.type === 'heading') {
-                return `      <h3 id="${sub.id}">${escapeHtml(sub.content)}</h3>`;
+                return `      <h3 id="${slugify(sub.id)}">${escapeHtml(sub.content)}</h3>`;
             }
-            return `      <p>${escapeHtml(sub.content)}</p>`;
+            return `      <p>${sub.content}</p>`;
         }).join('\n');
 
         return `    <section aria-labelledby="${ch.id}">
