@@ -78,8 +78,6 @@ literature-pwa/
 └── .gitignore
 ```
 
-### Configuration
-
 # Cloudflare Setup
 
 ## Configuration
