@@ -80,14 +80,23 @@ literature-pwa/
 
 ### Configuration
 
-#### Cloudflare Setup
+# Cloudflare Setup
 
-1. Create wrangler.toml in repo root:
+## Configuration
+
+Create `wrangler.toml` in the repository root:
+
+```toml
 name = "literature-pwa"
 compatibility_date = "2026-08-20"
 pages_build_output_dir = "./public"
-3. Create public/_headers with MIME type rules:
-   
+```
+
+## MIME Type Rules
+
+Create `public/_headers` with the following content:
+
+```
 /*
   Content-Type: text/html; charset=utf-8
 
@@ -117,6 +126,388 @@ pages_build_output_dir = "./public"
 
 /*.xml
   Content-Type: application/xml; charset=utf-8
+```
+
+## Deployment
+
+With `wrangler.toml` present, deploy the site with a single command from the
+repository root:
+
+```sh
+npx wrangler pages deploy
+```
+
+Because `pages_build_output_dir = "./public"` is declared in `wrangler.toml`,
+there is no need to specify the output directory on the command line. The
+`name = "literature-pwa"` setting defines the project name on your Cloudflare
+account.
+
+First-time setup requires authentication:
+
+```sh
+npx wrangler login
+```
+
+For CI environments (e.g., GitHub Actions), prefer an API token stored as a
+secret instead of interactive login:
+
+```sh
+CLOUDFLARE_API_TOKEN=<token> npx wrangler pages deploy
+```
+
+After deploying, verify headers are applied correctly by inspecting responses:
+
+```sh
+curl -sI https://your-domain.example.com/manifest.webmanifest
+```
+
+The `Content-Type` header in the response should read
+`application/manifest+json; charset=utf-8`.
+
+### Continuous Deployment with GitHub Actions
+
+Create `.github/workflows/deploy.yml` in the repository:
+
+```yaml
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy
+```
+
+Setup requirements in the GitHub repository settings:
+
+1. Create a Cloudflare API token with the
+   **Cloudflare Pages — Edit** permission (Account → Pages → Edit).
+2. Add it as the `CLOUDFLARE_API_TOKEN` secret.
+3. Add the Cloudflare account ID as the `CLOUDFLARE_ACCOUNT_ID` secret
+   (available on the Cloudflare dashboard overview page).
+
+Because `wrangler.toml` declares `pages_build_output_dir`, the workflow's
+`pages deploy` command needs no additional arguments. The `deployments: write`
+permission lets Cloudflare annotate the deployment status on commits.
+
+## Troubleshooting `_headers` and MIME Types
+
+These symptoms were all observed during development of the predecessor site
+(antinazi.org); each entry lists the cause and the fix carried forward into
+this project.
+
+### Symptom: Non-HTML assets served as `text/html`
+
+Plain-text pages (converted Project Gutenberg literature), `.json` manifest
+files, and occasionally `.css` files were delivered with a `text/html`
+`Content-Type`. On iOS Safari, this typically surfaces as the stylesheet being
+refused — the page renders as unstyled markup.
+
+- **Cause:** The catch-all `/*` rule in `_headers` overriding or racing with
+  Cloudflare's automatic content-type detection, with rules intermittently not
+  applying at all after deploys.
+- **Fix:** Extension-specific rules (longest-match-wins) now take precedence
+  over the `/*` fallback. If instability recurs, see
+  [Fallback: JavaScript Worker](#fallback-javascript-worker) below.
+
+### Symptom: "Unexpected keyword 'export'" in the Service Worker
+
+iOS Safari threw `SyntaxError: Unexpected keyword 'export'` when registering
+the Service Worker, despite the script being a valid ES module.
+
+- **Cause:** Workbox library files and other `.js`/`.mjs` modules served with
+  the wrong `Content-Type` (missing or incorrect JavaScript MIME type). Safari
+  refuses to execute module scripts whose MIME type is not
+  `text/javascript`/`application/javascript`.
+- **Fix:** The `.js` and `.mjs` rules in `_headers` explicitly set
+  `Content-Type: text/javascript; charset=utf-8`. Additionally, Workbox and
+  IDB scripts are **self-hosted** rather than loaded from jsDelivr, which
+  eliminates CDN-side CORS and MIME inconsistencies entirely.
+
+### Symptom: "Missing Workbox Libraries"
+
+Service Worker registration failed citing missing Workbox libraries, even
+though the files existed at the expected paths.
+
+- **Cause:** Same root cause as above — module scripts failing MIME validation
+  during import, producing cascading registration failures on the iOS public
+  beta.
+- **Fix:** Correct MIME types plus self-hosting. When this error appears, the
+  **first check** is always the `Content-Type` header on the Workbox module
+  files, not the file paths themselves:
+  `curl -sI https://your-domain.example.com/path/to/workbox.js`
+
+### Symptom: `manifest.webmanifest` not recognized
+
+PWABuilder and iOS Safari failed to recognize the web app manifest, preventing
+installation and displaying without the standalone display mode.
+
+- **Cause:** `.webmanifest` served as `text/plain` or `text/html`, causing
+  browsers to reject it.
+- **Fix:** The dedicated `.webmanifest` rule sets
+  `application/manifest+json; charset=utf-8`.
+
+### Symptom: Local diagnostics pass, PWABuilder fails
+
+Registration succeeds in the browser, but PWABuilder.com reports no Service
+Worker detected.
+
+- **Cause:** External validators fetch the site headlessly and can receive
+  different cached responses than an interactive browser session — Cloudflare
+  edge caching can serve stale headers or stale assets to validators after a
+  deploy.
+- **Mitigation:** Purge the Cloudflare cache after each deploy, or bump cache
+  versioning (update the precache `file-list.json` revision hash) whenever
+  Service Worker or asset content changes.
+
+### Symptom: Rendering differences between browser and standalone/fullscreen modes
+
+Navigation buttons stack vertically and content is obscured by the notch in
+fullscreen PWA mode, while the in-browser view renders correctly. These are
+treated as layout bugs to fix, not environment quirks.
+
+- **Cause:** Standalone mode omits browser chrome, so viewport metrics
+  (`safe-area-inset-*`) and safe-area-aware padding differ from in-browser
+  mode. Bugs were also observed correlating with iOS public beta releases.
+- **Mitigation:** All layout uses `viewport-fit=cover` plus
+  `env(safe-area-inset-*)` padding rather than fixed offsets, so rendering is
+  consistent across both modes.
+
+### Fallback: JavaScript Worker
+
+The `_headers` approach was removed from the predecessor project once due to
+the instability described above and replaced with a **JavaScript Cloudflare
+Worker** that sets MIME and security headers programmatically on every
+response. That Worker proved dependable where `_headers` did not. (An earlier
+attempt to implement this Worker in Rust was abandoned — online Rust
+playgrounds lacked the `worker` crate dependencies needed for compilation
+against Cloudflare's runtime.)
+
+The complete, deployment-ready implementation is codified in
+[Appendix A: JavaScript Header Worker](#appendix-a-javascript-header-worker-fallback-implementation).
+If `_headers` instability recurs:
+
+1. Remove `public/_headers` from the deployment.
+2. Create `functions/_middleware.js` at the repository root using the code in
+   Appendix A. Cloudflare Pages picks up the sibling `functions/` directory
+   automatically on the next `wrangler pages deploy` — no additional
+   configuration in `wrangler.toml` is required.
+3. Re-verify every MIME type with `curl -sI` before trusting the deployment.
+
+Do not run both mechanisms simultaneously. `_headers` rules and the middleware
+both mutate responses, and interleaved ordering makes header behavior
+impossible to reason about. Activate the Worker only after deleting
+`public/_headers`.
+
+## Appendix A: JavaScript Header Worker (Fallback Implementation)
+
+This is the production-proven implementation from the predecessor project,
+adapted for this repository. It runs as a Cloudflare Pages Functions
+middleware — a wrapper around every request the site serves — and performs two
+jobs deterministically, independent of Cloudflare's content-type sniffing:
+
+1. **MIME types:** derives `Content-Type` from the file extension via an
+   explicit map. Extensionless paths (pretty URLs such as `/privacy/`) default
+   to `text/html`, mirroring the `/*` catch-all rule in `_headers`.
+2. **Security headers:** applies a fixed set of headers to every response.
+
+### Placement
+
+Create `functions/_middleware.js` (note: the `functions/` directory sits at the
+repository root, as a sibling of `public/`, not inside it):
+
+```
+repo/
+├── functions/
+│   └── _middleware.js
+├── public/
+│   ├── _headers        ← remove this when activating the Worker
+│   └── … site files …
+└── wrangler.toml
+```
+
+### Complete source (`functions/_middleware.js`)
+
+```js
+/**
+ * Cloudflare Pages Functions middleware — MIME type and security
+ * header enforcement.
+ *
+ * Sets Content-Type from an explicit extension map (extensionless
+ * pretty URLs default to text/html) and applies security headers to
+ * every response. Deploy as functions/_middleware.js; Pages picks it
+ * up automatically alongside pages_build_output_dir = "./public".
+ *
+ * Do NOT run alongside public/_headers — choose one mechanism.
+ */
+
+// Explicit extension → MIME map. Mirrors the _headers rules exactly.
+// Any extension not listed here falls through to the DEFAULT_MIME_TYPE.
+const MIME_BY_EXTENSION = {
+  ".html": "text/html; charset=utf-8",
+  ".htm":  "text/html; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".css":  "text/css; charset=utf-8",
+  ".pdf":  "application/pdf; charset=utf-8",
+  ".js":   "text/javascript; charset=utf-8",
+  ".mjs":  "text/javascript; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
+  ".svg":  "image/svg+xml",
+  ".png":  "image/png",
+  ".jpg":  "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif":  "image/gif",
+  ".webp": "image/webp",
+  ".ico":  "image/x-icon",
+  ".xml":  "application/xml; charset=utf-8",
+  ".txt":  "text/plain; charset=utf-8",
+  ".woff":  "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf":   "font/ttf",
+  ".map":  "application/json; charset=utf-8"
+};
+
+// Pretty URLs without a file extension (/privacy/, /Gutenberg-License/)
+// are HTML documents.
+const DEFAULT_MIME_TYPE = "text/html; charset=utf-8";
+
+// Applied to every response, unconditionally.
+const SECURITY_HEADERS = {
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "Permissions-Policy":
+    "camera=(), microphone=(), geolocation=(), payment=()"
+};
+
+// CSP: strict — no unsafe-eval, no unsafe-inline. This project ships
+// no inline event handlers, inline <script>, or inline <style>; all
+// assets are same-origin and self-hosted (including Workbox and IDB).
+// Adjust ONLY alongside a corresponding change to page markup.
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "upgrade-insecure-requests"
+].join("; ");
+
+// NOTE on COEP: deliberately omitted. Cross-Origin-Embedder-Policy:
+// require-corp interacts poorly with Service Worker module loading on
+// iOS, which this project depends on. COOP and CORP above provide the
+// useful isolation without that risk.
+
+/**
+ * Derive the correct Content-Type for the requested path.
+ * @param {string} url - The full request URL.
+ * @returns {string} MIME type string.
+ */
+function getMimeType(url) {
+  const { pathname } = new URL(url);
+
+  // Strip a trailing slash so "/dir/" does not hide "/dir/index.html"-style
+  // matches — an extension lookup on the last segment is what matters.
+  const path = pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  const lastDot = path.lastIndexOf(".");
+
+  // An extension must be in the final path segment ("/foo.v2/bar" has no
+  // extension; "/styles.css" does). Guard the dot against directory names.
+  if (lastDot === -1) {
+    return DEFAULT_MIME_TYPE;
+  }
+  const lastSlash = path.lastIndexOf("/");
+  if (lastDot < lastSlash) {
+    return DEFAULT_MIME_TYPE;
+  }
+
+  const extension = path.slice(lastDot).toLowerCase();
+  return MIME_BY_EXTENSION[extension] ?? DEFAULT_MIME_TYPE;
+}
+
+export async function onRequest(context) {
+  const { request, next } = context;
+
+  // Produce the origin response (static asset or redirect).
+  const response = await next();
+
+  // Never touch redirect responses (3xx): their bodies are empty and
+  // rewriting them into a new Response can drop the Location header.
+  if (
+    response.status >= 300 &&
+    response.status < 400
+  ) {
+    return response;
+  }
+
+  // Copy headers, then overwrite MIME and security values.
+  const headers = new Headers(response.headers);
+  headers.set("Content-Type", getMimeType(request.url));
+  headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    headers.set(name, value);
+  }
+
+  // Re-emit the response with the modified headers. The body stream is
+  // passed through untouched; no buffering occurs.
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+```
+
+### Verification checklist after activation
+
+Run each check and confirm the expected value before trusting the deploy:
+
+```sh
+# Manifest MIME (PWA installation depends on this)
+curl -sI https://your-domain.example.com/manifest.webmanifest | grep -i content-type
+# expect: application/manifest+json; charset=utf-8
+
+# ES module MIME (Service Worker registration depends on this)
+curl -sI https://your-domain.example.com/js/sw.js | grep -i content-type
+# expect: text/javascript; charset=utf-8
+
+# Pretty-URL HTML (extensionless path)
+curl -sI https://your-domain.example.com/privacy/ | grep -i content-type
+# expect: text/html; charset=utf-8
+
+# Security headers present
+curl -sI https://your-domain.example.com/ | grep -i strict-transport-security
+curl -sI https://your-domain.example.com/ | grep -i content-security-policy
+```
+
+If any MIME check fails while the middleware is deployed, purge the Cloudflare
+edge cache before investigating further — stale cached responses without the
+middleware's headers are the most common false alarm.
   
 ### GitHub Actions
 
