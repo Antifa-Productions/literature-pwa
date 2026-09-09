@@ -72,6 +72,7 @@ literature-pwa/
 │   ├── Archive/                      # Additional cached files
 │   └── images/                       # PWA icons, OG images
 ├── wrangler.jsonc                     # Pages config (MIME types, HTML handling)
+├── package-lock.json
 ├── package.json
 ├── README.md
 ├── SECURITY.md
@@ -85,9 +86,11 @@ literature-pwa/
 Create `wrangler.jsonc` in the repository root:
 
 ```jsonc
-name = "literature-pwa"
-compatibility_date = "2026-08-20"
-pages_build_output_dir = "./public"
+{
+  "name": "literature-pwa",
+  "compatibility_date": "2026-08-20",
+  "pages_build_output_dir": "./public"
+}
 ```
 
 ## MIME Type Rules
