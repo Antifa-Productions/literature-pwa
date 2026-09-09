@@ -313,7 +313,11 @@
   },
   {
     "url": "/precache-manifest.json",
-    "revision": "fd7424599cc1f00a51210372023393ec6ab70c54"
+    "revision": "68f88e99d35a56257b7ffe5f5ca86d63dd52855c"
+  },
+  {
+    "url": "/sitemap.xml",
+    "revision": "ec1bfa82d751c5018ec5f70cd77fc87613323a53"
   },
   {
     "url": "/sw-register.js",
