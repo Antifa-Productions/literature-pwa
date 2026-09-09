@@ -105,6 +105,9 @@ Create `public/_headers` with the following content:
 /*.json
   Content-Type: application/json; charset=utf-8
 
+/*.jsonc
+  Content-Type: application/jsonc; charset=utf-8
+
 /*.css
   Content-Type: text/css; charset=utf-8
 
