@@ -72,7 +72,7 @@ literature-pwa/
 │   ├── text/                         # Source plain-text files (your input)
 │   ├── Archive/                      # Additional cached files
 │   └── images/                       # PWA icons, OG images
-├── wrangler.jsonc                     # Pages config (MIME types, HTML handling)
+├── wrangler.jsonc                    # Pages config (MIME types, HTML handling)
 ├── package-lock.json
 ├── package.json
 ├── README.md
