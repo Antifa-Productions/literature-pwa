@@ -13,7 +13,7 @@
     "build": "node src/download-workbox.mjs && node src/convert.mjs --all && node src/build-homepage.mjs && node src/build-index.mjs && node src/hash-files.mjs"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "^24.21.0"
   },
   "license": "AGPL-3.0-or-later"
 }
