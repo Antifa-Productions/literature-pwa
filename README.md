@@ -63,6 +63,7 @@ literature-pwa/
 │   │   ├── app.js                    # Landing page catalogue logic
 │   │   └── reader.js                 # Reading progress tracking per book
 │   ├── lib/
+│   │   └── idb.js
 │   │   └── workbox/                  # Self-hosted Workbox v7 files
 │   ├── literature/                   # Generated book directories
 │   │   ├── [book-slug]/
