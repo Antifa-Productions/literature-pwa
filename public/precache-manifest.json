@@ -24,14 +24,6 @@
     "revision": "a5231afb78f2075a67ac359c342a9220de3bd36b"
   },
   {
-    "url": "/images/png/favicon-dark.png",
-    "revision": "ae44277bd21d1b56afe728d200d1246ec40d2d83"
-  },
-  {
-    "url": "/images/png/favicon-light.png",
-    "revision": "0622a102eca8bf83fea9055b2ba758e7353582e0"
-  },
-  {
     "url": "/images/png/icon-dark-192x192-maskable.png",
     "revision": "40df4d292a3d7fd44a3263b65f990260fc51513a"
   },
@@ -74,14 +66,6 @@
   {
     "url": "/images/png/og_social.png",
     "revision": "cbc710a5ce4de98351ed3bb7f389aceca57f4c76"
-  },
-  {
-    "url": "/images/svg/favicon-dark.svg",
-    "revision": "cd728688f92eb4639f6551a4feabc5180c96a419"
-  },
-  {
-    "url": "/images/svg/favicon-light.svg",
-    "revision": "b21eb6621a0c80cd81fd19ef0a1d96e5abe7bb5a"
   },
   {
     "url": "/index.html",
@@ -313,7 +297,7 @@
   },
   {
     "url": "/precache-manifest.json",
-    "revision": "eb5dc15cf3c7f5cbc44265e9af1fb5cb851d3cc9"
+    "revision": "71dc305e81a2210c0864b790d25c5b73f13a7e3c"
   },
   {
     "url": "/sitemap.xml",
