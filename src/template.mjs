@@ -148,7 +148,7 @@ ${JSON.stringify(breadcrumbSchema, null, 2).replace(/</g, '\\u003c')}
     <nav aria-label="Breadcrumb">
       <ul class="breadcrumbs">
         <li><a href="/" aria-label="Home">🏠</a></li>
-        <li><a href="/library/" aria-label="Library">📚 Library</a></li>
+        <li><a href="/library" aria-label="Library">📚 Library</a></li>
         <li aria-current="page">${escapeHtml(book.title)}</li>
       </ul>
     </nav>
@@ -183,7 +183,7 @@ ${footnotesHtml}
 }
 
 export function buildHomepageHtml(siteUrl = 'https://dev.antinazi.org', cssPath = '/css/style.css') {
-    const title = 'Antinazi Literature Library';
+    const title = 'antiNazi Literature Library';
     const description = 'Public-domain anarchist and radical literature, accessible and offline-ready.';
     const canonicalUrl = `${siteUrl}/`;
     const ogImage = `${siteUrl}/images/png/og_social.png`;
