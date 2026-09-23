@@ -77,15 +77,17 @@
     "books &amp; reference",
     "education",
     "entertainment",
+    "events",
     "government",
     "lifestyle",
     "politics",
     "productivity",
+    "politics",
+    "productivity",
+    "reference",
     "security",
     "social"
   ],
-  "display_override": [
-    "minimal-ui",
-    "window-controls-overlay"
-  ]
+  "prefer_related_applications": false,
+  "id": "literature-pwa"
 }
