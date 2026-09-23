@@ -83,5 +83,9 @@
     "productivity",
     "security",
     "social"
+  ],
+  "display_override": [
+    "minimal-ui",
+    "window-controls-overlay"
   ]
 }
