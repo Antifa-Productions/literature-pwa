@@ -15,5 +15,16 @@
   "engines": {
     "node": "^24.21.0"
   },
-  "license": "AGPL-3.0-or-later"
+  "license": "AGPL-3.0-or-later",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Antifa-Productions/literature-pwa.git"
+  },
+  "keywords": [],
+  "author": "",
+  "bugs": {
+    "url": "https://github.com/Antifa-Productions/literature-pwa/issues"
+  },
+  "homepage": "https://github.com/Antifa-Productions/literature-pwa#readme"
 }
