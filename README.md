@@ -1,6 +1,4 @@
-# Literature PWA
-
-## [dev.antinazi.org](https://dev.antinazi.org)
+# [Literature PWA](https://antifa-productions.github.io/literature-pwa/)
 
 Converts plain-text public-domain literature into accessible HTML5 documents and serves them as an offline-capable Progressive Web App. Each book is placed in its own directory as `index.html` for clean URLs. The service worker uses self-hosted Workbox v7 for precaching and routing, with IndexedDB for reading progress tracking and offline catalogue browsing.
 
