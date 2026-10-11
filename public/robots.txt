@@ -1,0 +1,50 @@
+User-agent: Applebot
+Disallow: /
+
+User-agent: archive.org_bot
+Disallow: /
+
+User-agent: bingbot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: Claude-SearchBot
+Disallow: /
+
+User-agent: DuckAssistBot
+Disallow: /
+
+User-agent: Googlebot
+Disallow: /
+
+User-agent: meta-externalfetcher
+Disallow: /
+
+User-agent: MistralAI-User
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Perplexity-User
+Disallow: /
+
+User-agent: ProRataInc
+Disallow: /
+
+User-agent: Manus-User
+Disallow: /
+
+User-agent: Terracotta
+Disallow: /
+
+User-agent: CloudflareBrowserRenderingCrawler
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
